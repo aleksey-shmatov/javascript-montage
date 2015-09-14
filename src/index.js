@@ -56,20 +56,65 @@ export class Client {
     var params = {cursor};
     return this.request(`schemas/${schema}/`, "GET", params);
   }
-  *paginated_documents(schema, query) {
-    //yields promises
+  paginated_documents(schema, query) {
+    /*
+    Returns an async generator.
 
-    var cursor;
+
+    Consuming the generator::
+
+      var pagedDocuments = client.paginated_documents('users');
+
+      var response = await pagedDocuments.next();
+      while (!docs.done)  {
+        console.log("Users:", docs.value);
+        response = await pagedDocuments.next();
+      }
+
+    Using map helper::
+
+      var pagedDocuments = client.paginated_documents('users');
+
+      pagedDocuments.map(users => {
+        console.log("Users:", users);
+        return users;
+      }).then(allUsers => {
+        console.log("All users:", _.flatten(allUsers))
+      })
+
+    */
+    var cursor, first = true;
 
     function onResponse(response) {
+      console.log("respone:", response)
       cursor = response.cursors ? response.cursors.next : null;
       return response.data;
     }
 
-    yield this.documents(schema, query).then(onResponse);
-
-    while (cursor) {
-      yield this.document_cursor(schema, cursor).then(onResponse);
+    return {
+      next: async () => {
+        var value;
+        if (first) {
+          first = false;
+          value = await this.documents(schema, query).then(onResponse);
+        } else if (!cursor) {
+          return {done: true};
+        } else {
+          value = await this.document_cursor(schema, cursor).then(onResponse);
+        }
+        return {value: value, done: false};
+      },
+      map: function (callback) {
+        return new Promise(async (resolve, reject) => {
+          var results = [];
+          var response = await this.next();
+          while (!response.done) {
+            results.push(callback(response.value));
+            response = await this.next()
+          }
+          resolve(results);
+        });
+      }
     }
   }
   create_document(schema, document) {

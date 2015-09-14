@@ -304,7 +304,7 @@ describe('Client', () => {
   });
 
   describe('paginated documents', () => {
-    it('returns a generator that yields response promises', () => {
+    it('returns a generator that yields response promises', async function() {
       function firstPage(request) {
         expect(_.last(request.url.split('/v1/'))).to.be('schemas/movies/query/');
         expect(request.method).to.be('POST');
@@ -331,23 +331,25 @@ describe('Client', () => {
         });
       }
 
+      //first page
       emitter.once('request', firstPage);
       var generator = client.paginated_documents('movies');
-      var g1 = generator.next()
+      var g1 = await generator.next()
       expect(g1.done).to.be(false);
-      var response = g1.value;
-      return response.then(objects => {
-        emitter.once('request', lastPage);
-        expect(objects).to.be.eql(['aww yeah']);
-        var g2 = generator.next();
-        expect(g2.done).to.be(false);
-        expect(g2.value).to.be.ok();
-        return g2.value.then(objects => {
-          expect(objects).to.be.eql(['last one alive lock the door']);
-          var g3 = generator.next();
-          expect(g3.done).to.be(true);
-        });
-      });
+      var objects = g1.value;
+      expect(objects).to.be.eql(['aww yeah']);
+
+      //last page
+      emitter.once('request', lastPage);
+      var g2 = await generator.next();
+      expect(g2.done).to.be(false);
+      expect(g2.value).to.be.ok();
+      objects = g2.value;
+      expect(objects).to.be.eql(['last one alive lock the door']);
+
+      //done
+      var g3 = await generator.next();
+      expect(g3.done).to.be(true);
     });
   });
 });
