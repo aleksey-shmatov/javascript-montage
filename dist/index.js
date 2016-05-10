@@ -241,6 +241,8 @@ var Query = (function () {
   }, {
     key: '_mergeArray',
     value: function _mergeArray(delta) {
+      var prepend = arguments[1] === undefined ? false : arguments[1];
+
       var index = _lodash2['default'].findIndex(this._state['$query'], function (item) {
         return item[0] === delta[0];
       });
@@ -248,7 +250,11 @@ var Query = (function () {
       if (index !== -1) {
         this._state['$query'][index] = delta;
       } else {
-        this._state['$query'].push(delta);
+        if (prepend) {
+          this._state['$query'].unshift(delta);
+        } else {
+          this._state['$query'].push(delta);
+        }
       }
 
       return new Query(this.schemaName, this._state);
@@ -323,6 +329,14 @@ var Query = (function () {
     value: function where(params) {
       //alias
       return this.filter(params);
+    }
+  }, {
+    key: 'between',
+    value: function between(params) {
+      if (params && params.from && params.to) {
+        return this._mergeArray(['$between', [params.from, params.to, params.index]], true);
+      }
+      return this;
     }
   }, {
     key: 'toJS',
